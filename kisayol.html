@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+<title>Kısayol</title>
+<style>
+  /* Değerler tasarım dili token'larının kopyası (_Genel/araclar/tasarim/tokens-degiskenler.css):
+     uygulama bağımsız dağıtılıyor ve CSP dış dosya yüklemeyi kapatıyor.
+     zemin=ink-50 yüzey=surface yazı=ink-900 soluk=ink-500 çizgi=ink-150 hata=red-600 */
+  :root {
+    --zemin: #F7F6F3; --yuzey: #FFFFFF; --yazi: #1C1B18; --soluk: #6B6A64;
+    --cizgi: #E3E1DA; --dolgu: #1C1B18; --dolgu-yazi: #F7F6F3; --hata: #C2382B;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --zemin: #141311; --yuzey: #1B1A18; --yazi: #EFEDE8; --soluk: #9A9891;
+      --cizgi: #363430; --dolgu: #EFEDE8; --dolgu-yazi: #141311; --hata: #E0433A;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--zemin); color: var(--yazi);
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 24px; display: flex; flex-direction: column; gap: 14px;
+    -webkit-user-select: none; user-select: none;
+  }
+  h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  p { color: var(--soluk); font-size: 13px; }
+  #kutu {
+    background: var(--yuzey); border: 1px solid var(--cizgi); border-radius: 12px;
+    height: 78px; display: flex; align-items: center; justify-content: center; gap: 8px;
+    outline: none;
+  }
+  #kutu.dinliyor { border-color: var(--yazi); }
+  kbd {
+    font: 600 20px -apple-system, BlinkMacSystemFont, sans-serif;
+    min-width: 38px; height: 38px; padding: 0 10px; border-radius: 9px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--zemin); border: 1px solid var(--cizgi); box-shadow: 0 1px 0 var(--cizgi);
+  }
+  .bekle { color: var(--soluk); font-size: 14px; }
+  #hata { color: var(--hata); font-size: 13px; min-height: 18px; }
+  .alt { display: flex; gap: 8px; margin-top: auto; }
+  button {
+    font: 600 13px -apple-system, BlinkMacSystemFont, sans-serif;
+    height: 32px; padding: 0 14px; border-radius: 8px; cursor: default;
+    border: 1px solid var(--cizgi); background: var(--yuzey); color: var(--yazi);
+  }
+  button.ana { background: var(--dolgu); color: var(--dolgu-yazi); border-color: var(--dolgu); margin-left: auto; }
+  button:disabled { opacity: .4; }
+</style>
+</head>
+<body>
+  <h1>Çizimi açıp kapatan kısayol</h1>
+  <p>Yeni tuş birleşimine bas. ⌘, ⌥ ya da ⌃ tuşlarından en az biri olmalı.</p>
+  <div id="kutu" tabindex="0"></div>
+  <div id="hata"></div>
+  <div class="alt">
+    <button id="varsayilan">Varsayılana dön</button>
+    <button id="vazgec">Vazgeç</button>
+    <button id="kaydet" class="ana" disabled>Kaydet</button>
+  </div>
+<script>
+"use strict";
+const kutu = document.getElementById("kutu");
+const hata = document.getElementById("hata");
+const kaydetBtn = document.getElementById("kaydet");
+let mevcut = "", varsayilan = "", secilen = null;
+
+// Electron hızlandırıcısı ↔ ekranda görünen macOS simgeleri
+const SIMGE = { Control: "⌃", Alt: "⌥", Shift: "⇧", Command: "⌘",
+  Space: "Space", Return: "↩", Up: "↑", Down: "↓", Left: "←", Right: "→",
+  Backspace: "⌫", Delete: "⌦", Tab: "⇥" };
+function goster(acc, soluk) {
+  kutu.textContent = "";
+  if (!acc) {
+    const s = document.createElement("span");
+    s.className = "bekle"; s.textContent = soluk;
+    kutu.appendChild(s); return;
+  }
+  // macOS sırası: ⌃ ⌥ ⇧ ⌘, sonra tuş
+  const SIRA = ["Control", "Alt", "Shift", "Command"];
+  const parca = acc.split("+").sort((a, b) =>
+    (SIRA.includes(a) ? SIRA.indexOf(a) : 9) - (SIRA.includes(b) ? SIRA.indexOf(b) : 9));
+  for (const p of parca) {
+    const k = document.createElement("kbd");
+    k.textContent = SIMGE[p] || p;
+    kutu.appendChild(k);
+  }
+}
+
+// e.code klavye düzeninden bağımsız fiziksel tuş; ⌥ basılıyken e.key bozulur
+function tus(e) {
+  const c = e.code;
+  if (/^Key[A-Z]$/.test(c)) return c.slice(3);
+  if (/^Digit[0-9]$/.test(c)) return c.slice(5);
+  if (/^F([1-9]|1[0-9]|20)$/.test(c)) return c;
+  const ozel = { Space: "Space", Enter: "Return", ArrowUp: "Up", ArrowDown: "Down",
+    ArrowLeft: "Left", ArrowRight: "Right", Backspace: "Backspace", Delete: "Delete",
+    Tab: "Tab", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]",
+    Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/", Backslash: "\\",
+    Backquote: "`" };
+  return ozel[c] || null;
+}
+
+window.addEventListener("keydown", (e) => {
+  e.preventDefault();
+  if (e.key === "Escape" && !e.metaKey && !e.ctrlKey && !e.altKey) { window.kisayolAPI.kapat(); return; }
+  const anaTus = tus(e);
+  if (!anaTus) return;                      // yalnız değiştirici basılı, bekle
+  hata.textContent = "";
+  if (!(e.metaKey || e.ctrlKey || e.altKey)) {
+    hata.textContent = "⌘, ⌥ ya da ⌃ tuşlarından biriyle birlikte bas.";
+    return;
+  }
+  const p = [];
+  if (e.ctrlKey) p.push("Control");
+  if (e.altKey) p.push("Alt");
+  if (e.shiftKey) p.push("Shift");
+  if (e.metaKey) p.push("Command");
+  p.push(anaTus);
+  secilen = p.join("+");
+  goster(secilen);
+  kaydetBtn.disabled = secilen === mevcut;
+});
+
+async function kaydet(acc) {
+  const r = await window.kisayolAPI.kaydet(acc);
+  if (!r.ok) {
+    hata.textContent = "Bu kısayol kaydedilemedi (sistem ayırmış olabilir). Başka bir birleşim dene.";
+  }
+}
+kaydetBtn.addEventListener("click", () => secilen && kaydet(secilen));
+document.getElementById("varsayilan").addEventListener("click", () => {
+  if (mevcut === varsayilan) { window.kisayolAPI.kapat(); return; }
+  kaydet(varsayilan);
+});
+document.getElementById("vazgec").addEventListener("click", () => window.kisayolAPI.kapat());
+// düğmeye tıklayınca odak kutudan kaçmasın: tuşlar her zaman yakalanır
+for (const b of document.querySelectorAll("button")) b.addEventListener("mouseup", () => kutu.focus());
+
+window.kisayolAPI.oku().then((d) => {
+  mevcut = d.kisayol; varsayilan = d.varsayilan;
+  goster(mevcut);
+  kutu.focus();
+});
+</script>
+</body>
+</html>

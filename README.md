@@ -15,6 +15,8 @@ karıştırmayan, saniyesinde açılıp kapanan bir ekran üstü kalem. Baştan 
 - Ekranda araç çubuğu yok: çizim alanını kapatmaz, tıklamayı yemez.
 - Hıza göre incelen, kalem hissi veren çizgi.
 - Çoklu ekran: her ekranda çalışır, imleç hangi ekrandaysa orada çizersin.
+- Silgi yok, karmaşa yok: açınca çizersin, kapatınca hepsi gider.
+- Menü çubuğunda küçük bir ikon: oradan aç, kısayolu değiştir ya da kapat.
 - Dock'ta ikon yok, arka planda kısayol bekler; açılışta kendiliğinden başlar.
 
 ## Kurulum
@@ -26,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/merterhann/basit-cizim-uygulamasi/m
 ```
 
 Hepsi bu. En son sürümü indirir, Uygulamalar klasörüne koyar ve açar.
-Güncellemek için aynı satırı tekrar çalıştır. Satırın ne yaptığını görmek
+**Güncellemek için aynı satırı tekrar çalıştır;** kısayol ayarın korunur. Satırın ne yaptığını görmek
 istersen: [`kur.sh`](kur.sh).
 
 M1 ve sonrası (Apple Silicon) Mac'ler için. Intel Mac'te aşağıdaki
@@ -48,19 +50,23 @@ M1 ve sonrası (Apple Silicon) Mac'ler için. Intel Mac'te aşağıdaki
 
 | Kısayol | Ne yapar |
 |--|--|
-| `Ctrl+Option+Cmd+Shift+9` | Çizimi aç / kapat (kapatınca her şey silinir) |
-| `Ctrl+Option+Cmd+Shift+8` | Silgi aç / kapat |
-| `E` ya da `8` | Silgi aç / kapat |
+| `Ctrl+Option+Cmd+Shift+9` | Çizimi aç / kapat (kapatınca çizimler gider) |
+| `Cmd+Z` | Son çizgiyi geri al |
 | `[` `]` | Kalem kalınlığı |
-| `C` | Temizle |
-| `Cmd+Z` | Geri al |
 | `B` | Zemin: şeffaf → beyaz → siyah |
-| `Esc` | Kapat ve sil |
+| `Esc` | Kapat |
 
-Dört tuşlu kısayollar bilerek seçildi: hiçbir uygulamayla çakışmaz, klavyeden
-yanlışlıkla basılmaz. Asıl kullanım bunları **mouse yan tuşlarına** atamaktır.
-Örneğin Logitech Options+ ile yan tuşa "Keystroke" atayıp
-`Ctrl+Option+Cmd+Shift+9` girersin; tek tuşla çizim açılır.
+**Menü çubuğu:** uygulama çalışırken sağ üstte küçük bir halka ikonu durur.
+Tıklayınca: **Çizimi aç**, **Kısayolu değiştir…** ve **Çık**.
+
+**Kısayolu değiştirmek:** menüden *Kısayolu değiştir…* → yeni tuş birleşimine
+bas → *Kaydet*. ⌘, ⌥ ya da ⌃ tuşlarından en az biri olmalı. Seçtiğin kısayol
+güncellemelerde korunur.
+
+Varsayılan dört tuşlu kısayol bilerek seçildi: hiçbir uygulamayla çakışmaz,
+klavyeden yanlışlıkla basılmaz. Asıl kullanım bunu **mouse yan tuşuna**
+atamaktır. Örneğin Logitech Options+ ile yan tuşa "Keystroke" atayıp
+kısayolu girersin; tek tuşla çizim açılır.
 
 Kalem kırmızıdır; renk paleti bilerek yok.
 
@@ -92,6 +98,8 @@ entirely with [Claude Code](https://claude.com/claude-code).
 - No on-screen toolbar: nothing covers your content or steals clicks.
 - Velocity-based stroke width that feels like a real pen.
 - Multi-monitor: works on every display, you draw wherever the cursor is.
+- No eraser, no clutter: open it and draw, close it and it's all gone.
+- A small menu bar icon: open, change the hotkey or quit from there.
 - No Dock icon; it waits for the hotkey in the background and starts at login.
 
 ### Install
@@ -125,16 +133,18 @@ For Apple Silicon (M1 and later). On Intel Macs, build from source.
 | Shortcut | Action |
 |--|--|
 | `Ctrl+Option+Cmd+Shift+9` | Toggle the overlay (closing clears it) |
-| `Ctrl+Option+Cmd+Shift+8` | Toggle eraser |
-| `E` or `8` | Toggle eraser |
+| `Cmd+Z` | Undo last stroke |
 | `[` `]` | Pen size |
-| `C` | Clear |
-| `Cmd+Z` | Undo |
 | `B` | Background: transparent → white → black |
-| `Esc` | Close and clear |
+| `Esc` | Close |
 
-The four-modifier hotkeys never clash with other apps. They are meant to be
-mapped to **mouse side buttons** (e.g. a "Keystroke" action in Logitech
+**Menu bar:** while running, a small ring icon sits in the menu bar with
+**Open drawing**, **Change shortcut…** and **Quit**. To change the hotkey, pick
+*Change shortcut…*, press the new combination (must include ⌘, ⌥ or ⌃) and
+save. Your choice survives updates.
+
+The default four-modifier hotkey never clashes with other apps. It is meant to
+be mapped to a **mouse side button** (e.g. a "Keystroke" action in Logitech
 Options+), so one button opens the overlay.
 
 ### Build from source

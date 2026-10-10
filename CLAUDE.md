@@ -7,12 +7,15 @@ mevcut ekranın üstüne çizerek anlatmak için. Tarayıcı / beyaz tahta modu 
 
 | Dosya | Ne |
 |--|--|
-| `index.html` | Tüm çizim: canvas, hız-bazlı değişken kalınlık, silgi. Inline CSS/JS, bağımlılık yok. |
-| `main.js` | Electron: her bağlı ekrana bir tam ekran şeffaf `alwaysOnTop` pencere + global hotkey + toggle'da temizle. |
-| `preload.js` | `window.electronAPI` köprüsü (hide, onClear, onToggleEraser, sync/onSync). |
+| `index.html` | Tüm çizim: canvas, hız-bazlı değişken kalınlık. Inline CSS/JS, bağımlılık yok. |
+| `main.js` | Electron: her bağlı ekrana bir tam ekran şeffaf `alwaysOnTop` pencere + global hotkey (kullanıcı değiştirebilir) + toggle'da temizle + menü çubuğu ikonu. |
+| `preload.js` | `window.electronAPI` köprüsü (hide, onClear, sync/onSync, focusMe). |
+| `kisayol.html` + `kisayol-preload.js` | Menü çubuğundan açılan kısayol değiştirme penceresi. Kısayol `userData/ayarlar.json`'da (güncellemede korunur). Pencere açıkken genel kısayol kapalı, kapanınca geri gelir. |
+| `tray/trayTemplate*.png` | Menü çubuğu ikonu (template: macOS açık/koyu boyar). Menü: Çizimi aç/kapat, Kısayolu değiştir…, Çık. |
 
 - Ekranda arayüz yok, bilerek: araç çubuğu çizim alanını kapatıyor, tıklamaları yiyordu. Geri ekleme.
 - Kalem tek renk, her zeminde kırmızı (`index.html` → `const color`). Renk paleti bilerek yok.
+- Silme yok, bilerek (2026-10-10, Mert): silgi, `C` temizle ve silgi kısayolu kaldırıldı. Açınca çizilir, kapatınca gider; yalnız `Cmd+Z` (son çizgi) kaldı. Geri ekleme.
 - `index.html` `window.electronAPI` varsa overlay modu (şeffaf), yoksa beyaz tahta modu.
 
 ### Çoklu ekran
@@ -20,30 +23,27 @@ mevcut ekranın üstüne çizerek anlatmak için. Tarayıcı / beyaz tahta modu 
 - `wins[]` = ekran başına bir pencere, `type: "panel"` (NSNonactivatingPanel). "Displays have separate Spaces" açıkken dock'suz uygulamanın ikinci ekran penceresi ancak böyle key olup fare olayı alır.
 - Key-pencere takibi main sürecinde: `startCursorFollow` 150 ms'de bir imleç konumunu okur, imleç ekran değiştirince o pencereyi `focus()` eder.
 - Renderer'da focus/enter sonrası imleç `crosshair → dot` diye zorla yeniden dayatılır: Chromium focus değişince özel CSS imlecini kendiliğinden yeniden çizmiyor.
-- Araç durumu (kalınlık/zemin/silgi, `clearAll`) `sync` IPC ile pencereler arası paylaşılır; main yalnız relay eder, `applying` bayrağı eko döngüsünü keser. Çizim geçmişi (`strokes`, `Cmd+Z`) ekrana özel kalır.
+- Araç durumu (kalınlık/zemin, `clearAll`) `sync` IPC ile pencereler arası paylaşılır; main yalnız relay eder, `applying` bayrağı eko döngüsünü keser. Çizim geçmişi (`strokes`, `Cmd+Z`) ekrana özel kalır.
 - Ekran sayısı değişince `rebuild`, yalnız yerleşim/çözünürlük değişince `syncBounds` (pencereleri yok etmeden konumlar).
 
 ## Kullanım: mouse asıl yol
 
 Logitech mouse yan tuşları Logi Options+ ile atanır (kodda değil):
 
-- Yan tuş 1 → Keystroke `Ctrl+Alt+Cmd+Shift+9` = aç / kapat. Kapatınca ekrandaki her şey silinir + silgi kapanır, her açılış temiz.
-- Yan tuş 2 → Keystroke `Ctrl+Alt+Cmd+Shift+8` = silgi aç/kapat. Varsayılan Back bırakılırsa mouse `button 3/4` de silgiyi açıp kapatır.
+- Yan tuş → Keystroke `Ctrl+Alt+Cmd+Shift+9` (varsayılan) = aç / kapat. Kapatınca ekrandaki her şey silinir, her açılış temiz.
 
-İkisi `main.js`'te `globalShortcut` ile kayıtlı, IPC'yle renderer'a gider. 4
-modifierlı ("hyper") kombinasyonlar bilerek: hiçbir uygulamayla çakışmaz,
-klavyeden yanlışlıkla basılmaz. Silgi basılı tutma değil toggle, çünkü Options+
-keystroke hold göndermiyor.
+`main.js`'te `globalShortcut` ile kayıtlı. Varsayılan 4 modifierlı ("hyper")
+kombinasyon bilerek: hiçbir uygulamayla çakışmaz, klavyeden yanlışlıkla basılmaz.
+Kullanıcı menü çubuğundan değiştirebilir (en az ⌘/⌥/⌃ biri zorunlu).
 
 ## Klavye (ekranda düğme yok, tek görsel olmayan yol)
 
-`E` / `8` silgi toggle · `[` `]` kalınlık · `C` temizle · `Cmd+Z` geri al ·
-`B` zemin döngüsü (şeffaf → beyaz → siyah) · `Esc` kapat+sil
+`[` `]` kalınlık · `Cmd+Z` geri al · `B` zemin döngüsü (şeffaf → beyaz → siyah) ·
+`Esc` kapat
 
 ## İmleç
 
 Küçük nokta (artı değil). Koyu/şeffaf zeminde beyaz, beyaz zeminde siyah.
-Silgi modunda içi boş halka, silgi boyutunda.
 
 ## Çizgi hissi
 

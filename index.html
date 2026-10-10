@@ -30,7 +30,6 @@ const TUNING = {
   velSmooth: 0.14,   // hız yumuşatma (düşük = daha yumuşak, biraz gecikmeli)
   streamline: 0.62,  // pozisyon yumuşatma (0..1) — büyük = daha akıcı çizgi
   smoothWidth: 0.13, // kalınlık geçişi yumuşatma (düşük = softer)
-  eraserScale: 4,    // silgi kalemin kaç katı
 };
 const SIZE_STEPS = [2.4, 3.6, 5.0, 7.0, 10, 14];  // [ ] ile ölçek
 let sizeIdx = 3;
@@ -39,12 +38,12 @@ const scale = () => SIZE_STEPS[sizeIdx] / TUNING.base;   // seçili boy / refera
 const isOverlay = !!(window.electronAPI);
 if (!isOverlay) document.body.classList.add("board");
 
-// Çoklu ekran: araç durumu (renk/kalınlık/zemin/silgi) pencereler arası senkron.
+// Çoklu ekran: araç durumu (kalınlık/zemin) pencereler arası senkron.
 // applying = gelen mesajı uygularken kendi mesajımızı geri yollamayı engeller.
 let applying = false;
 function pushState() {
   if (!isOverlay || applying) return;
-  window.electronAPI.sync({ type: "state", sizeIdx, bg, eraserOn });
+  window.electronAPI.sync({ type: "state", sizeIdx, bg });
 }
 
 const c = document.getElementById("c");
@@ -63,12 +62,8 @@ function resize() {
 // ── Durum ──────────────────────────────────────────────────────────────────
 const color = "#ff453a";   // tek kalem rengi — palet yok
 let bg = null;                 // null = şeffaf, "#fff" = beyaz zemin
-let eraserOn = false;          // silgi açık mı (toggle)
-const eraser = () => eraserOn;
-function setEraser(on) { eraserOn = on; setCursor(); pushState(); }
-function toggleEraser() { setEraser(!eraserOn); }
 
-const strokes = [];            // [{color, erase, pts:[{x,y,w}]}]
+const strokes = [];            // [{color, pts:[{x,y,w}]}]
 let cur = null;
 let sx = 0, sy = 0, sw = TUNING.base, vel = 0, lastT = 0;
 
@@ -85,8 +80,7 @@ function targetWidth() {
 const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, w: (a.w + b.w) / 2 });
 
 // Daire damgalarıyla "boyama" — pürüzsüz, boşluksuz, doğal yuvarlak uç
-function stampLine(a, b, col, erase) {
-  ctx.globalCompositeOperation = erase ? "destination-out" : "source-over";
+function stampLine(a, b, col) {
   ctx.fillStyle = col;
   const d = Math.hypot(b.x - a.x, b.y - a.y);
   const steps = Math.max(1, Math.ceil(d / 1.3));
@@ -100,9 +94,8 @@ function stampLine(a, b, col, erase) {
 }
 
 // Üç nokta arası quadratic Bézier — merkez çizgi yumuşatılır (Apple hissi)
-function stampQuad(p0, p1, p2, col, erase) {
+function stampQuad(p0, p1, p2, col) {
   const m1 = mid(p0, p1), m2 = mid(p1, p2);
-  ctx.globalCompositeOperation = erase ? "destination-out" : "source-over";
   ctx.fillStyle = col;
   const len = Math.hypot(p1.x - m1.x, p1.y - m1.y) + Math.hypot(m2.x - p1.x, m2.y - p1.y);
   const steps = Math.max(2, Math.ceil(len / 1.3));
@@ -119,11 +112,11 @@ function stampQuad(p0, p1, p2, col, erase) {
 
 function renderStroke(s) {
   const p = s.pts;
-  if (p.length === 1) return dot(p[0], s.color, s.erase);
-  if (p.length === 2) return stampLine(p[0], p[1], s.color, s.erase);
-  stampLine(p[0], mid(p[0], p[1]), s.color, s.erase);
-  for (let i = 1; i < p.length - 1; i++) stampQuad(p[i-1], p[i], p[i+1], s.color, s.erase);
-  stampLine(mid(p[p.length-2], p[p.length-1]), p[p.length-1], s.color, s.erase);
+  if (p.length === 1) return dot(p[0], s.color);
+  if (p.length === 2) return stampLine(p[0], p[1], s.color);
+  stampLine(p[0], mid(p[0], p[1]), s.color);
+  for (let i = 1; i < p.length - 1; i++) stampQuad(p[i-1], p[i], p[i+1], s.color);
+  stampLine(mid(p[p.length-2], p[p.length-1]), p[p.length-1], s.color);
 }
 
 function redraw() {
@@ -131,22 +124,19 @@ function redraw() {
   ctx.clearRect(0, 0, W, H);
   if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H); }
   for (const s of strokes) renderStroke(s);
-  ctx.globalCompositeOperation = "source-over";
 }
 
-function dot(p, col, erase) {
-  ctx.globalCompositeOperation = erase ? "destination-out" : "source-over";
+function dot(p, col) {
   ctx.fillStyle = col;
   ctx.beginPath();
   ctx.arc(p.x, p.y, Math.max(0.6, p.w / 2), 0, 7);
   ctx.fill();
-  ctx.globalCompositeOperation = "source-over";
 }
 
 // ── Pointer ────────────────────────────────────────────────────────────────
 function start(x, y) {
-  const w0 = eraser() ? TUNING.base * TUNING.eraserScale * scale() : TUNING.base * 0.35 * scale();
-  cur = { color, erase: eraser(), pts: [{ x, y, w: w0 }] };
+  const w0 = TUNING.base * 0.35 * scale();
+  cur = { color, pts: [{ x, y, w: w0 }] };
   strokes.push(cur);
   sx = x; sy = y; sw = w0; vel = TUNING.vMax * 0.4; lastT = performance.now();
 }
@@ -160,27 +150,22 @@ function addPoint(x, y) {
   const prev = cur.pts[cur.pts.length - 1];
   const dist = Math.hypot(sx - prev.x, sy - prev.y);
   if (dist < 0.35) return;
-  if (cur.erase) {
-    sw = TUNING.base * TUNING.eraserScale * scale();
-  } else {
-    const iv = dt > 0 ? dist / dt : vel;
-    vel += (iv - vel) * TUNING.velSmooth;
-    sw += (targetWidth() - sw) * TUNING.smoothWidth;
-  }
+  const iv = dt > 0 ? dist / dt : vel;
+  vel += (iv - vel) * TUNING.velSmooth;
+  sw += (targetWidth() - sw) * TUNING.smoothWidth;
   const pt = { x: sx, y: sy, w: sw };
   cur.pts.push(pt);
   const n = cur.pts.length;
-  if (n >= 3) stampQuad(cur.pts[n-3], cur.pts[n-2], cur.pts[n-1], cur.color, cur.erase);
-  else stampLine(cur.pts[n-2], cur.pts[n-1], cur.color, cur.erase);
-  ctx.globalCompositeOperation = "source-over";
+  if (n >= 3) stampQuad(cur.pts[n-3], cur.pts[n-2], cur.pts[n-1], cur.color);
+  else stampLine(cur.pts[n-2], cur.pts[n-1], cur.color);
 }
 
 function end() {
   if (!cur) return;
   if (cur.pts.length === 1) {
-    dot(cur.pts[0], cur.color, cur.erase);
+    dot(cur.pts[0], cur.color);
   } else {
-    if (!cur.erase) taperTail(cur.pts);
+    taperTail(cur.pts);
     redraw();
   }
   cur = null;
@@ -232,16 +217,10 @@ c.addEventListener("pointermove", (e) => {
 c.addEventListener("pointerup", () => end());
 c.addEventListener("pointercancel", () => end());
 
-// ── Mouse yan tuş (button 3/4) = silgi aç/kapat ─────────────────────────────
-window.addEventListener("mousedown", (e) => {
-  if (e.button === 3 || e.button === 4) { e.preventDefault(); toggleEraser(); }
-});
-window.addEventListener("mouseup", (e) => {
-  if (e.button === 3 || e.button === 4) e.preventDefault();
-});
-window.addEventListener("auxclick", (e) => {
-  if (e.button === 3 || e.button === 4) e.preventDefault();
-});
+// Mouse geri/ileri tuşları çizim katmanında hiçbir şey yapmasın
+for (const ad of ["mousedown", "mouseup", "auxclick"]) {
+  window.addEventListener(ad, (e) => { if (e.button === 3 || e.button === 4) e.preventDefault(); });
+}
 window.addEventListener("contextmenu", (e) => e.preventDefault());
 
 // ── UI ─────────────────────────────────────────────────────────────────────
@@ -261,10 +240,10 @@ function syncSize() {
   pushState();
 }
 
+// yalnız kapanışta çağrılır (main her pencereye 'clear' yollar); silme tuşu yok
 function clearAll() {
   strokes.length = 0;
   redraw();
-  if (isOverlay && !applying) window.electronAPI.sync({ type: "clear" });
 }
 
 // ── İmleç: küçük nokta. Şeffaf zeminde beyaz, beyaz zeminde siyah ───────────
@@ -277,16 +256,11 @@ function dotCursor(fill, ring, r) {
 let _curKey = "", _curVal = "";
 function setCursor() {
   const lightBg = bg === "#ffffff";   // sadece beyaz zeminde koyu imleç
-  const key = eraserOn + "|" + sizeIdx + "|" + lightBg;
+  const key = String(lightBg);
   if (key !== _curKey) {
     _curKey = key;
-    if (eraserOn) {
-      const r = Math.max(9, SIZE_STEPS[sizeIdx] * TUNING.eraserScale / 2);
-      _curVal = dotCursor("none", lightBg ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.9)", r);
-    } else {
-      _curVal = dotCursor(lightBg ? "#1c1c1e" : "#ffffff",
-        lightBg ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.45)", 5);
-    }
+    _curVal = dotCursor(lightBg ? "#1c1c1e" : "#ffffff",
+      lightBg ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.45)", 5);
   }
   document.body.style.cursor = _curVal;
 }
@@ -299,31 +273,25 @@ window.addEventListener("keydown", (e) => {
   // Cmd+Shift+Z (yinele) bir çizgi daha geri almasın.
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   switch (e.key) {
-    case "8": case "e": case "E":
-      if (!e.repeat) toggleEraser(); break;
     case "[": sizeIdx = Math.max(0, sizeIdx - 1); syncSize(); break;
     case "]": sizeIdx = Math.min(SIZE_STEPS.length - 1, sizeIdx + 1); syncSize(); break;
-    case "c": case "C": clearAll(); break;
     case "b": case "B": cycleBg(); break;
     case "Escape":
-      if (isOverlay) window.electronAPI.hide(); else clearAll();
+      if (isOverlay) window.electronAPI.hide();
       break;
   }
 });
 
 // ── Electron köprüsü ───────────────────────────────────────────────────────
 if (isOverlay) {
-  window.electronAPI.onClear(() => { applying = true; clearAll(); setEraser(false); applying = false; });
-  window.electronAPI.onToggleEraser(() => toggleEraser());
+  // yalnız kapanışta: çizimler kapatınca gider
+  window.electronAPI.onClear(clearAll);
   window.electronAPI.onSync((msg) => {
     applying = true;
     try {
-      if (msg.type === "clear") {
-        clearAll();
-      } else if (msg.type === "state") {
+      if (msg.type === "state") {
         if (msg.bg !== bg) { bg = msg.bg; document.body.style.background = msg.bg || "transparent"; }
         if (msg.sizeIdx !== sizeIdx) { sizeIdx = msg.sizeIdx; syncSize(); }
-        setEraser(msg.eraserOn);
         setCursor();
         redraw();
       }
