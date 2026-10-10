@@ -68,6 +68,8 @@ npm run dist         # dist/mac-arm64/BasitCizim.app
 - İç ad (`productName`, çalıştırılabilir dosya ve yardımcı süreçler) ASCII kalmalı: `BasitCizim`. Türkçe harfli ad (Ç, ı) Electron yardımcılarını açılışta çökertiyor (SIGTRAP, çıkış 133). Görünen ad `CFBundleDisplayName` ve Release zip'indeki klasör adı: "Basit Çizim Uygulaması.app".
 - Release: `ditto dist/mac-arm64/BasitCizim.app "<geçici>/Basit Çizim Uygulaması.app"` → o klasörden `ditto -c -k --keepParent` ile `Basit-Cizim-Uygulamasi-mac-arm64.zip`. Yayından önce zip'ten çıkan uygulamayı çalıştırıp açıldığını gör.
 
+- Kullanıcı kurulumu `kur.sh` (README'deki tek satır): `releases/latest/download/Basit-Cizim-Uygulamasi-mac-arm64.zip` adına bağlı; zip adı ve içindeki "Basit Çizim Uygulaması.app" adı değişirse betik bozulur.
+
 ## Arama dışı
 
 `node_modules/`, `dist/`

@@ -19,20 +19,30 @@ karıştırmayan, saniyesinde açılıp kapanan bir ekran üstü kalem. Baştan 
 
 ## Kurulum
 
-1. [Releases](https://github.com/merterhann/basit-cizim-uygulamasi/releases) sayfasından
-   `Basit-Cizim-Uygulamasi-mac-arm64.zip` dosyasını indir, aç, `Basit Çizim Uygulaması.app`'i **Uygulamalar**
-   klasörüne sürükle.
-2. Uygulama Apple'a kayıtlı bir geliştirici hesabıyla imzalı değil, bu yüzden
-   ilk açılışta macOS "doğrulanamadı" der. **Bitti**'ye bas, sonra
-   **Sistem Ayarları → Gizlilik ve Güvenlik** sayfasının altındaki
-   **Yine de Aç**'a tıkla. Ya da Terminal'de tek satır:
-   ```bash
-   xattr -dr com.apple.quarantine "/Applications/Basit Çizim Uygulaması.app"
-   ```
-3. Çift tıkla. Pencere açılmaz; uygulama arka planda kısayolu bekler.
+**Terminal**'i aç (Spotlight'ta "Terminal" yaz), bu satırı yapıştır, Enter'a bas:
 
-Yalnız Apple Silicon (M1 ve sonrası) Mac'ler için paketlenmiştir. Intel Mac'te
-aşağıdaki "Kaynaktan derle" adımlarını izle.
+```bash
+curl -fsSL https://raw.githubusercontent.com/merterhann/basit-cizim-uygulamasi/main/kur.sh | bash
+```
+
+Hepsi bu. En son sürümü indirir, Uygulamalar klasörüne koyar ve açar.
+Güncellemek için aynı satırı tekrar çalıştır. Satırın ne yaptığını görmek
+istersen: [`kur.sh`](kur.sh).
+
+M1 ve sonrası (Apple Silicon) Mac'ler için. Intel Mac'te aşağıdaki
+"Kaynaktan derle" adımlarını izle.
+
+<details>
+<summary>Terminal kullanmadan kurmak</summary>
+
+1. [Releases](https://github.com/merterhann/basit-cizim-uygulamasi/releases/latest)
+   sayfasından zip'i indir, çift tıklayıp aç.
+2. Çıkan uygulamayı Finder'da **Uygulamalar** klasörüne sürükle.
+3. Çift tıkla. macOS "doğrulanamadı" derse **Bitti**'ye bas, sonra
+   **Sistem Ayarları → Gizlilik ve Güvenlik** sayfasının altındaki
+   **Yine de Aç**'a tıkla. (Uygulama Apple geliştirici hesabıyla imzalı değil.)
+
+</details>
 
 ## Kullanım
 
@@ -86,19 +96,29 @@ entirely with [Claude Code](https://claude.com/claude-code).
 
 ### Install
 
-1. Download `Basit-Cizim-Uygulamasi-mac-arm64.zip` from
-   [Releases](https://github.com/merterhann/basit-cizim-uygulamasi/releases), unzip it and drag
-   `Basit Çizim Uygulaması.app` into **Applications**.
-2. The app is not signed with an Apple Developer ID, so macOS says it cannot
-   be verified on first launch. Click **Done**, then **System Settings →
-   Privacy & Security → Open Anyway**. Or run one line in Terminal:
-   ```bash
-   xattr -dr com.apple.quarantine "/Applications/Basit Çizim Uygulaması.app"
-   ```
-3. Double-click it. No window opens; the app waits for the hotkey.
+Open **Terminal**, paste this line and press Enter:
 
-The release is built for Apple Silicon (M1 and later). On Intel Macs, build
-from source.
+```bash
+curl -fsSL https://raw.githubusercontent.com/merterhann/basit-cizim-uygulamasi/main/kur.sh | bash
+```
+
+That's it. It downloads the latest release, puts it in Applications and opens
+it. Run the same line again to update. See what it does: [`kur.sh`](kur.sh).
+
+For Apple Silicon (M1 and later). On Intel Macs, build from source.
+
+<details>
+<summary>Install without Terminal</summary>
+
+1. Download the zip from
+   [Releases](https://github.com/merterhann/basit-cizim-uygulamasi/releases/latest)
+   and double-click to unzip.
+2. Drag the app into **Applications** in Finder.
+3. Double-click it. If macOS says it cannot be verified, click **Done**, then
+   **System Settings → Privacy & Security → Open Anyway**. (The app is not
+   signed with an Apple Developer ID.)
+
+</details>
 
 ### Shortcuts
 
