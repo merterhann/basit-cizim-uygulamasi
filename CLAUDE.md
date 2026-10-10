@@ -11,7 +11,7 @@ mevcut ekranın üstüne çizerek anlatmak için. Tarayıcı / beyaz tahta modu 
 | `main.js` | Electron: her bağlı ekrana bir tam ekran şeffaf `alwaysOnTop` pencere + global hotkey (kullanıcı değiştirebilir) + toggle'da temizle + menü çubuğu ikonu. |
 | `preload.js` | `window.electronAPI` köprüsü (hide, onClear, sync/onSync, focusMe). |
 | `kisayol.html` + `kisayol-preload.js` | Menü çubuğundan açılan kısayol değiştirme penceresi. Kısayol `userData/ayarlar.json`'da (güncellemede korunur). Pencere açıkken genel kısayol kapalı, kapanınca geri gelir. |
-| `tray/trayTemplate*.png` | Menü çubuğu ikonu (template: macOS açık/koyu boyar). Menü: Çizimi aç/kapat, Kısayolu değiştir…, Çık. |
+| `tray/trayTemplate*.png` | Menü çubuğu ikonu (template: macOS açık/koyu boyar). Menü yalnız: Kısayolu değiştir… (yanında geçerli kısayol) ve Çık. Menüden çizim açılmaz, bilerek (Mert, 2026-10-10): çizim yalnız kısayolla. |
 
 - Ekranda arayüz yok, bilerek: araç çubuğu çizim alanını kapatıyor, tıklamaları yiyordu. Geri ekleme.
 - Kalem tek renk, her zeminde kırmızı (`index.html` → `const color`). Renk paleti bilerek yok.

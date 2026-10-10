@@ -92,7 +92,6 @@ function showAll() {
   visible = true;
   followDisplayId = null;
   startCursorFollow();
-  menuKur();
 }
 
 function hideAll() {
@@ -100,7 +99,6 @@ function hideAll() {
   broadcast("clear");   // her kapanışta temiz sayfa
   for (const w of wins) if (!w.isDestroyed()) w.hide();
   visible = false;
-  menuKur();
 }
 
 // macOS: key olmayan / aktif olmayan uygulamanın penceresi mouseMoved olayı almaz,
@@ -151,15 +149,15 @@ function rebuild() {
 let tray = null;
 function menuKur() {
   if (!tray) return;
+  // Menüden çizim açılmaz (Mert, 2026-10-10): çizim yalnız kısayolla. Geçerli
+  // kısayol "Kısayolu değiştir…" yanında görünür, unutulmasın.
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: visible ? "Çizimi kapat" : "Çizimi aç", accelerator: kisayolEtkin ? kisayol : undefined,
-      registerAccelerator: false, click: toggle },
     // kısayol kaydedilemediyse (sistem ayırmış ya da ayar bozuk) sessizce çalışmaz kalmasın.
     // Not: macOS başka uygulamanın aynı kısayolu almasını engellemiyor, onu algılayamayız.
-    ...(kisayolEtkin ? [] : [{ label: "⚠︎ Kısayol çalışmıyor. Değiştir…",
-      click: kisayolPenceresi }]),
-    { type: "separator" },
-    { label: "Kısayolu değiştir…", click: kisayolPenceresi },
+    ...(kisayolEtkin ? [] : [{ label: "⚠︎ Kısayol çalışmıyor. Değiştir…", click: kisayolPenceresi },
+      { type: "separator" }]),
+    { label: "Kısayolu değiştir…", accelerator: kisayolEtkin ? kisayol : undefined,
+      registerAccelerator: false, click: kisayolPenceresi },
     { type: "separator" },
     { label: "Çık", click: () => app.quit() },
   ]));

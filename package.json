@@ -1,6 +1,6 @@
 {
   "name": "basit-cizim-uygulamasi",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "macOS ekran üstü çizim katmanı — canlı yayın anlatımı için",
   "main": "main.js",
   "scripts": {

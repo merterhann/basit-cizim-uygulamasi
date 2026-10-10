@@ -16,7 +16,7 @@ karıştırmayan, saniyesinde açılıp kapanan bir ekran üstü kalem. Baştan 
 - Hıza göre incelen, kalem hissi veren çizgi.
 - Çoklu ekran: her ekranda çalışır, imleç hangi ekrandaysa orada çizersin.
 - Silgi yok, karmaşa yok: açınca çizersin, kapatınca hepsi gider.
-- Menü çubuğunda küçük bir ikon: oradan aç, kısayolu değiştir ya da kapat.
+- Menü çubuğunda küçük bir ikon: oradan kısayolu değiştir ya da uygulamayı kapat.
 - Dock'ta ikon yok, arka planda kısayol bekler; açılışta kendiliğinden başlar.
 
 ## Kurulum
@@ -57,7 +57,8 @@ M1 ve sonrası (Apple Silicon) Mac'ler için. Intel Mac'te aşağıdaki
 | `Esc` | Kapat |
 
 **Menü çubuğu:** uygulama çalışırken sağ üstte küçük bir halka ikonu durur.
-Tıklayınca: **Çizimi aç**, **Kısayolu değiştir…** ve **Çık**.
+Tıklayınca: **Kısayolu değiştir…** (yanında geçerli kısayol yazar) ve **Çık**. Çizim
+yalnız kısayolla açılır.
 
 **Kısayolu değiştirmek:** menüden *Kısayolu değiştir…* → yeni tuş birleşimine
 bas → *Kaydet*. ⌘, ⌥ ya da ⌃ tuşlarından en az biri olmalı. Seçtiğin kısayol
@@ -99,7 +100,7 @@ entirely with [Claude Code](https://claude.com/claude-code).
 - Velocity-based stroke width that feels like a real pen.
 - Multi-monitor: works on every display, you draw wherever the cursor is.
 - No eraser, no clutter: open it and draw, close it and it's all gone.
-- A small menu bar icon: open, change the hotkey or quit from there.
+- A small menu bar icon: change the hotkey or quit from there.
 - No Dock icon; it waits for the hotkey in the background and starts at login.
 
 ### Install
@@ -139,7 +140,8 @@ For Apple Silicon (M1 and later). On Intel Macs, build from source.
 | `Esc` | Close |
 
 **Menu bar:** while running, a small ring icon sits in the menu bar with
-**Open drawing**, **Change shortcut…** and **Quit**. To change the hotkey, pick
+**Change shortcut…** (shows the current one) and **Quit**; drawing opens only
+with the hotkey. To change the hotkey, pick
 *Change shortcut…*, press the new combination (must include ⌘, ⌥ or ⌃) and
 save. Your choice survives updates.
 
