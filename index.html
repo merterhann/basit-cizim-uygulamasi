@@ -1,0 +1,338 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:">
+
+<title>Basit Çizim Uygulaması</title>
+<style>
+  /* Ekran üstü overlay: arayüz yok — yalnız canvas. Araçlar klavye + mouse
+     yan tuşlarında (araç çubuğu çizim alanını kapatıyordu, 2026-09-22). */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+  body { font: 13px -apple-system, BlinkMacSystemFont, sans-serif; -webkit-user-select: none; user-select: none; }
+  body.board { background: #fff; }
+  canvas { position: fixed; inset: 0; }
+
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+"use strict";
+
+// ── Çizgi hissi — Apple kalemi gibi soft. Beğenmezsen sadece burayı oyna ────
+const TUNING = {
+  base: 7.0,         // yavaş çizerken kalınlık (px)
+  minW: 2.2,         // en hızlıda kalınlık
+  vMax: 4.0,         // bu hızda (px/ms) minW'ye iner
+  velSmooth: 0.14,   // hız yumuşatma (düşük = daha yumuşak, biraz gecikmeli)
+  streamline: 0.62,  // pozisyon yumuşatma (0..1) — büyük = daha akıcı çizgi
+  smoothWidth: 0.13, // kalınlık geçişi yumuşatma (düşük = softer)
+  eraserScale: 4,    // silgi kalemin kaç katı
+};
+const SIZE_STEPS = [2.4, 3.6, 5.0, 7.0, 10, 14];  // [ ] ile ölçek
+let sizeIdx = 3;
+const scale = () => SIZE_STEPS[sizeIdx] / TUNING.base;   // seçili boy / referans
+
+const isOverlay = !!(window.electronAPI);
+if (!isOverlay) document.body.classList.add("board");
+
+// Çoklu ekran: araç durumu (renk/kalınlık/zemin/silgi) pencereler arası senkron.
+// applying = gelen mesajı uygularken kendi mesajımızı geri yollamayı engeller.
+let applying = false;
+function pushState() {
+  if (!isOverlay || applying) return;
+  window.electronAPI.sync({ type: "state", sizeIdx, bg, eraserOn });
+}
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = window.devicePixelRatio || 1;
+  W = window.innerWidth; H = window.innerHeight;
+  c.width = W * DPR; c.height = H * DPR;
+  c.style.width = W + "px"; c.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  redraw();
+}
+
+// ── Durum ──────────────────────────────────────────────────────────────────
+const color = "#ff453a";   // tek kalem rengi — palet yok
+let bg = null;                 // null = şeffaf, "#fff" = beyaz zemin
+let eraserOn = false;          // silgi açık mı (toggle)
+const eraser = () => eraserOn;
+function setEraser(on) { eraserOn = on; setCursor(); pushState(); }
+function toggleEraser() { setEraser(!eraserOn); }
+
+const strokes = [];            // [{color, erase, pts:[{x,y,w}]}]
+let cur = null;
+let sx = 0, sy = 0, sw = TUNING.base, vel = 0, lastT = 0;
+
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const smoothstep = (t) => t * t * (3 - 2 * t);
+
+// hız → hedef kalınlık: yavaş kalın, hızlı ince, yumuşak geçiş
+function targetWidth() {
+  const t = clamp(vel / TUNING.vMax, 0, 1);
+  const w = TUNING.minW + (TUNING.base - TUNING.minW) * (1 - smoothstep(t));
+  return w * scale();
+}
+
+const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, w: (a.w + b.w) / 2 });
+
+// Daire damgalarıyla "boyama" — pürüzsüz, boşluksuz, doğal yuvarlak uç
+function stampLine(a, b, col, erase) {
+  ctx.globalCompositeOperation = erase ? "destination-out" : "source-over";
+  ctx.fillStyle = col;
+  const d = Math.hypot(b.x - a.x, b.y - a.y);
+  const steps = Math.max(1, Math.ceil(d / 1.3));
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    ctx.beginPath();
+    ctx.arc(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t,
+            Math.max(0.4, (a.w + (b.w - a.w) * t) / 2), 0, 7);
+    ctx.fill();
+  }
+}
+
+// Üç nokta arası quadratic Bézier — merkez çizgi yumuşatılır (Apple hissi)
+function stampQuad(p0, p1, p2, col, erase) {
+  const m1 = mid(p0, p1), m2 = mid(p1, p2);
+  ctx.globalCompositeOperation = erase ? "destination-out" : "source-over";
+  ctx.fillStyle = col;
+  const len = Math.hypot(p1.x - m1.x, p1.y - m1.y) + Math.hypot(m2.x - p1.x, m2.y - p1.y);
+  const steps = Math.max(2, Math.ceil(len / 1.3));
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps, it = 1 - t;
+    const x = it * it * m1.x + 2 * it * t * p1.x + t * t * m2.x;
+    const y = it * it * m1.y + 2 * it * t * p1.y + t * t * m2.y;
+    const w = it * it * m1.w + 2 * it * t * p1.w + t * t * m2.w;
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(0.4, w / 2), 0, 7);
+    ctx.fill();
+  }
+}
+
+function renderStroke(s) {
+  const p = s.pts;
+  if (p.length === 1) return dot(p[0], s.color, s.erase);
+  if (p.length === 2) return stampLine(p[0], p[1], s.color, s.erase);
+  stampLine(p[0], mid(p[0], p[1]), s.color, s.erase);
+  for (let i = 1; i < p.length - 1; i++) stampQuad(p[i-1], p[i], p[i+1], s.color, s.erase);
+  stampLine(mid(p[p.length-2], p[p.length-1]), p[p.length-1], s.color, s.erase);
+}
+
+function redraw() {
+  ctx.globalCompositeOperation = "source-over";
+  ctx.clearRect(0, 0, W, H);
+  if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H); }
+  for (const s of strokes) renderStroke(s);
+  ctx.globalCompositeOperation = "source-over";
+}
+
+function dot(p, col, erase) {
+  ctx.globalCompositeOperation = erase ? "destination-out" : "source-over";
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, Math.max(0.6, p.w / 2), 0, 7);
+  ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+}
+
+// ── Pointer ────────────────────────────────────────────────────────────────
+function start(x, y) {
+  const w0 = eraser() ? TUNING.base * TUNING.eraserScale * scale() : TUNING.base * 0.35 * scale();
+  cur = { color, erase: eraser(), pts: [{ x, y, w: w0 }] };
+  strokes.push(cur);
+  sx = x; sy = y; sw = w0; vel = TUNING.vMax * 0.4; lastT = performance.now();
+}
+
+function addPoint(x, y) {
+  if (!cur) return;
+  sx += (x - sx) * (1 - TUNING.streamline);
+  sy += (y - sy) * (1 - TUNING.streamline);
+  const now = performance.now();
+  const dt = now - lastT; lastT = now;
+  const prev = cur.pts[cur.pts.length - 1];
+  const dist = Math.hypot(sx - prev.x, sy - prev.y);
+  if (dist < 0.35) return;
+  if (cur.erase) {
+    sw = TUNING.base * TUNING.eraserScale * scale();
+  } else {
+    const iv = dt > 0 ? dist / dt : vel;
+    vel += (iv - vel) * TUNING.velSmooth;
+    sw += (targetWidth() - sw) * TUNING.smoothWidth;
+  }
+  const pt = { x: sx, y: sy, w: sw };
+  cur.pts.push(pt);
+  const n = cur.pts.length;
+  if (n >= 3) stampQuad(cur.pts[n-3], cur.pts[n-2], cur.pts[n-1], cur.color, cur.erase);
+  else stampLine(cur.pts[n-2], cur.pts[n-1], cur.color, cur.erase);
+  ctx.globalCompositeOperation = "source-over";
+}
+
+function end() {
+  if (!cur) return;
+  if (cur.pts.length === 1) {
+    dot(cur.pts[0], cur.color, cur.erase);
+  } else {
+    if (!cur.erase) taperTail(cur.pts);
+    redraw();
+  }
+  cur = null;
+}
+
+// Apple hissi: bırakınca uç mesafeye göre sivrilir
+function taperTail(pts) {
+  const maxD = 24 * scale();
+  let d = 0;
+  for (let i = pts.length - 1; i > 0 && d < maxD; i--) {
+    d += Math.hypot(pts[i].x - pts[i-1].x, pts[i].y - pts[i-1].y);
+    const f = clamp(d / maxD, 0, 1);
+    pts[i].w = Math.max(0.6, pts[i].w * (0.15 + 0.85 * f));
+  }
+}
+
+// Çoklu ekran imleç: asıl key-pencere takibi main sürecinde (cursor poll).
+// Burada tıklamada yedek focus + focus/enter sonrası imleci yeniden dayat:
+// macOS'ta Chromium focus değişince özel CSS imleci hemen yeniden çizmez,
+// değeri gerçekten değiştirmeden (crosshair → dot) tetiklenmiyor.
+if (isOverlay) {
+  window.addEventListener("pointerdown", () => window.electronAPI.focusMe(), true);
+
+  let reassertUntil = 0;
+  function nudgeCursor() {
+    reassertUntil = performance.now() + 900;
+    document.body.style.cursor = "crosshair";
+    requestAnimationFrame(() => requestAnimationFrame(setCursor));
+  }
+  window.addEventListener("focus", nudgeCursor);
+  window.addEventListener("pointerenter", nudgeCursor);
+  window.addEventListener("pointermove", () => {
+    if (performance.now() >= reassertUntil) return;
+    // string'i gerçekten değiştir ki Chromium yeniden değerlendirsin
+    document.body.style.cursor = "crosshair";
+    requestAnimationFrame(setCursor);
+  }, { passive: true });
+}
+
+c.addEventListener("pointerdown", (e) => {
+  if (e.button === 0) { c.setPointerCapture(e.pointerId); start(e.clientX, e.clientY); }
+});
+c.addEventListener("pointermove", (e) => {
+  if (!(e.buttons & 1)) return;
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+  if (!evs.length) evs.push(e);
+  for (const ev of evs) addPoint(ev.clientX, ev.clientY);
+});
+c.addEventListener("pointerup", () => end());
+c.addEventListener("pointercancel", () => end());
+
+// ── Mouse yan tuş (button 3/4) = silgi aç/kapat ─────────────────────────────
+window.addEventListener("mousedown", (e) => {
+  if (e.button === 3 || e.button === 4) { e.preventDefault(); toggleEraser(); }
+});
+window.addEventListener("mouseup", (e) => {
+  if (e.button === 3 || e.button === 4) e.preventDefault();
+});
+window.addEventListener("auxclick", (e) => {
+  if (e.button === 3 || e.button === 4) e.preventDefault();
+});
+window.addEventListener("contextmenu", (e) => e.preventDefault());
+
+// ── UI ─────────────────────────────────────────────────────────────────────
+// Zemin: şeffaf → beyaz → siyah → şeffaf.
+const BG_CYCLE = [null, "#ffffff", "#0b0b0c"];
+function cycleBg() {
+  const next = BG_CYCLE[(BG_CYCLE.indexOf(bg) + 1) % BG_CYCLE.length];
+  bg = next;
+  document.body.style.background = next || "transparent";
+  setCursor();
+  redraw();
+  pushState();
+}
+
+function syncSize() {
+  setCursor();
+  pushState();
+}
+
+function clearAll() {
+  strokes.length = 0;
+  redraw();
+  if (isOverlay && !applying) window.electronAPI.sync({ type: "clear" });
+}
+
+// ── İmleç: küçük nokta. Şeffaf zeminde beyaz, beyaz zeminde siyah ───────────
+function dotCursor(fill, ring, r) {
+  const s = Math.ceil(2 * (r + 2)), c = s / 2;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${s}' height='${s}'>`
+    + `<circle cx='${c}' cy='${c}' r='${r}' fill='${fill}' stroke='${ring}' stroke-width='1.5'/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${c} ${c}, auto`;
+}
+let _curKey = "", _curVal = "";
+function setCursor() {
+  const lightBg = bg === "#ffffff";   // sadece beyaz zeminde koyu imleç
+  const key = eraserOn + "|" + sizeIdx + "|" + lightBg;
+  if (key !== _curKey) {
+    _curKey = key;
+    if (eraserOn) {
+      const r = Math.max(9, SIZE_STEPS[sizeIdx] * TUNING.eraserScale / 2);
+      _curVal = dotCursor("none", lightBg ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.9)", r);
+    } else {
+      _curVal = dotCursor(lightBg ? "#1c1c1e" : "#ffffff",
+        lightBg ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.45)", 5);
+    }
+  }
+  document.body.style.cursor = _curVal;
+}
+syncSize();
+
+// ── Klavye (yedek) ─────────────────────────────────────────────────────────
+window.addEventListener("keydown", (e) => {
+  if (e.metaKey && !e.shiftKey && e.key.toLowerCase() === "z") { e.preventDefault(); strokes.pop(); redraw(); return; }
+  // Kısayollar düz tuş: Cmd/Ctrl+C alışkanlığı bütün ekranları silmesin,
+  // Cmd+Shift+Z (yinele) bir çizgi daha geri almasın.
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  switch (e.key) {
+    case "8": case "e": case "E":
+      if (!e.repeat) toggleEraser(); break;
+    case "[": sizeIdx = Math.max(0, sizeIdx - 1); syncSize(); break;
+    case "]": sizeIdx = Math.min(SIZE_STEPS.length - 1, sizeIdx + 1); syncSize(); break;
+    case "c": case "C": clearAll(); break;
+    case "b": case "B": cycleBg(); break;
+    case "Escape":
+      if (isOverlay) window.electronAPI.hide(); else clearAll();
+      break;
+  }
+});
+
+// ── Electron köprüsü ───────────────────────────────────────────────────────
+if (isOverlay) {
+  window.electronAPI.onClear(() => { applying = true; clearAll(); setEraser(false); applying = false; });
+  window.electronAPI.onToggleEraser(() => toggleEraser());
+  window.electronAPI.onSync((msg) => {
+    applying = true;
+    try {
+      if (msg.type === "clear") {
+        clearAll();
+      } else if (msg.type === "state") {
+        if (msg.bg !== bg) { bg = msg.bg; document.body.style.background = msg.bg || "transparent"; }
+        if (msg.sizeIdx !== sizeIdx) { sizeIdx = msg.sizeIdx; syncSize(); }
+        setEraser(msg.eraserOn);
+        setCursor();
+        redraw();
+      }
+    } finally { applying = false; }
+  });
+}
+
+window.addEventListener("resize", resize);
+resize();
+</script>
+</body>
+</html>
