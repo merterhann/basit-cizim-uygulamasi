@@ -1,3 +1,8 @@
 node_modules/
 dist/
 .DS_Store
+
+# anahtar dosyaları (2026-11-24)
+.env
+.env.*
+!.env.ornek
