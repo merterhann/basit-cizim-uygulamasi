@@ -58,7 +58,7 @@ npm start            # geliştirirken (paketlemeden)
 npm run dist         # dist/mac-arm64/BasitCizim.app
 ```
 
-- Klavye kısayolu testi (Electron'suz, `file://`, Playwright): bu klasörden `python3 tahta-testi/kisayol.py` (Playwright kurulu Python) (9 kontrol: Cmd/Ctrl+C silmiyor, Cmd+Shift+Z geri almıyor, Cmd+E silgi açmıyor, düz tuşlar çalışıyor). `node_modules` gerekmez.
+- Klavye kısayolu testi (Electron'suz, `file://`, Playwright): bu klasörden `python3 tahta-testi/kisayol.py` (Playwright kurulu Python) (11 kontrol: Cmd/Ctrl+C silmiyor, Cmd+Shift+Z geri almıyor, silgi ve düz C kaldırıldı, düz [ ] B çalışıyor). `node_modules` gerekmez.
 - `Basit Çizim Uygulaması.app` → `/Applications`, çift tık. Terminal, dock ikonu, pencere yok; arka planda hotkey dinler. `openAtLogin` yalnız paketli sürümde açık.
 - Değişikliği paketli `.app` üstünden dene: `npm run dist` + `.app`'i `/Applications`'a kopyala.
 

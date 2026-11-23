@@ -2,10 +2,10 @@
 # Tahta klasöründen: python3 tahta-testi/kisayol.py
 #
 # Kanıtladığı iddialar (2026-10-08 gece denetimi, KP-7):
-#   * Kısayollar düz tuş: Cmd/Ctrl+C çizimi silmiyor (overlay'de 'clear'
-#     senkronuyla bütün ekranları siliyordu), Cmd+E silgiyi açmıyor,
+#   * Cmd/Ctrl+C çizimi silmiyor (overlay'de 'clear' senkronuyla bütün
+#     ekranları siliyordu); silme tuşu hiç yok (silgi ve düz C 2026-10-10'da kaldırıldı),
 #   * Cmd+Shift+Z bir çizgi daha geri almıyor; Cmd+Z tek çizgi geri alıyor,
-#   * düz C hâlâ temizliyor, düz E hâlâ silgi.
+#   * düz tuşlar çalışıyor: ] kalem boyunu büyütüyor, [ küçültüyor, B zemini döndürüyor.
 import os, sys
 from playwright.sync_api import sync_playwright
 
@@ -37,13 +37,16 @@ with sync_playwright() as p:
     kontrol("Cmd+Shift+Z geri almıyor", n() == 2, n())
     s.keyboard.press("Meta+z")
     kontrol("Cmd+Z tek çizgi geri alıyor", n() == 1, n())
-    s.keyboard.press("Meta+e")
-    kontrol("Cmd+E silgiyi açmıyor", s.evaluate("eraserOn") is False)
-    s.keyboard.press("e")
-    kontrol("düz E silgiyi açıyor", s.evaluate("eraserOn") is True)
-    s.keyboard.press("e")
+    boy0 = s.evaluate("sizeIdx")
+    s.keyboard.press("]")
+    kontrol("düz ] kalemi büyütüyor", s.evaluate("sizeIdx") == boy0 + 1, s.evaluate("sizeIdx"))
+    s.keyboard.press("[")
+    kontrol("düz [ kalemi küçültüyor", s.evaluate("sizeIdx") == boy0, s.evaluate("sizeIdx"))
+    s.keyboard.press("b")
+    kontrol("düz B zemini beyaza çeviriyor", s.evaluate("bg") == "#ffffff", s.evaluate("bg"))
     s.keyboard.press("c")
-    kontrol("düz C temizliyor", n() == 0, n())
+    kontrol("düz C artık silmiyor (silme tuşu yok)", n() == 1, n())
+    kontrol("silgi kaldırıldı", s.evaluate("typeof eraserOn") == "undefined")
     kontrol("sayfa hatası yok", not hatalar, hatalar[:2])
     b.close()
 
